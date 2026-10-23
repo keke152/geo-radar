@@ -1,0 +1,10 @@
+**/node_modules/
+**/.venv/
+**/target/
+**/dist/
+**/__pycache__/
+**/*.py[cod]
+**/*.sqlite3
+**/data/audit.log
+python-service/skills/proposals/
+.env

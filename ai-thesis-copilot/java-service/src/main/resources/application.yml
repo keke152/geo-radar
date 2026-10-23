@@ -1,0 +1,19 @@
+server:
+  port: 8081
+spring:
+  application:
+    name: thesis-auth-service
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+app:
+  rbac:
+    roles:
+      researcher: [workflow:run, rag:search, drafts:read, drafts:write]
+      advisor: [workflow:run, rag:search, drafts:read, drafts:review]
+      admin: ["*"]
+  rate-limit:
+    requests-per-minute: 30
+  audit:
+    file: ./data/audit.log

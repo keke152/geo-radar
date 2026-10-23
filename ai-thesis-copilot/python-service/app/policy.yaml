@@ -1,0 +1,14 @@
+roles:
+  researcher:
+    allow: [workflow:run, rag:search, drafts:read, drafts:write]
+  advisor:
+    allow: [workflow:run, rag:search, drafts:read, drafts:review]
+  admin:
+    allow: ["*"]
+defaults:
+  demo_role: researcher
+  rate_limit_per_minute: 30
+  max_input_chars: 6000
+fallback:
+  mode: fail_closed_for_write
+  retry_attempts: 3

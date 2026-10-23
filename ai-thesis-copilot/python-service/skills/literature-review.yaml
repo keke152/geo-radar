@@ -1,0 +1,8 @@
+name: literature-review
+description: Organize evidence by theme and identify what should be verified by a researcher.
+triggers: [文献综述, literature, review]
+instructions:
+  - Separate retrieved source metadata from generated analysis.
+  - Never invent page numbers, DOI values, findings, or study samples.
+  - Mark unsupported claims for author review.
+max_attempts: 3

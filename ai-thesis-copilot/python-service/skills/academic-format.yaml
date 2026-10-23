@@ -1,0 +1,8 @@
+name: academic-format
+description: Format a draft with a clear structure and traceable references.
+triggers: [格式, 引用, reference, apa]
+instructions:
+  - Preserve the author's research question and claims.
+  - Keep citations linked to retrieved source IDs.
+  - Flag any incomplete reference metadata.
+max_attempts: 3

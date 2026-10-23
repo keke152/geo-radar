@@ -1,0 +1,43 @@
+# Local dependency environments and generated output
+**/node_modules/
+**/.venv/
+**/venv/
+**/target/
+**/dist/
+**/__pycache__/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+*.py[cod]
+*.class
+*.jar
+
+# Local state, uploaded data and generated audit records
+**/runtime/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+*.log
+ai-thesis-copilot/python-service/skills/proposals/
+
+# Real configuration and private key material
+.env
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.template
+*.pem
+*.key
+*.pfx
+*.p12
+
+# IDE / OS files and local archives
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.zip
