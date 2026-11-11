@@ -1,0 +1,36 @@
+<section id="home" class="view" hidden>
+ <div class="landing-shell">
+  <div class="landing-nav">
+   <a href="#overview" class="landing-brand" aria-label="AI GEO 进入工作台"><span class="landing-brand-icon">AI<span>✦</span></span><b>AI GEO<span>BRAND INTELLIGENCE</span></b></a>
+   <div class="landing-links"><a href="#platforms">平台连接</a><a href="#insights">可见度看板</a><a class="landing-nav-cta" href="#overview">进入工作台 <span>↗</span></a></div>
+  </div>
+  <div class="landing-hero">
+   <div class="landing-copy">
+    <div class="landing-kicker"><i></i> AI GEO · 品牌发现与观测</div>
+    <h1>你的品牌，<br><span>在 AI 回答里吗？</span></h1>
+    <p class="landing-description">先选一个业务主题，为每个平台设计不同的问题。<br>对照回答里的品牌提及、官网链接与原始证据。</p>
+    <div class="landing-question"><label for="home-question">从一个主题开始</label><div><input id="home-question" maxlength="160" placeholder="输入要研究的业务主题" aria-describedby="home-question-feedback"><button type="button" id="home-start" aria-label="规划各平台问题，确认后再发送">规划分平台问题 <span aria-hidden="true">↗</span></button></div></div>
+    <p id="home-question-feedback" class="landing-question-feedback" role="status" aria-live="polite"></p>
+    <ol class="landing-flow" aria-label="检查流程"><li><b>1</b> 选定主题</li><li><b>2</b> 分平台规划</li><li><b>3</b> 确认后发送</li></ol>
+    <div class="landing-local"><span class="landing-pulse"></span><span id="landing-service">本地工作空间</span><i></i><span>回答与来源，清晰可追溯</span></div>
+   </div>
+   <div class="landing-visual" aria-label="交互式地球与平台卫星网络。拖动旋转，方向键调整，点击平台查看连接状态" role="group" tabindex="0">
+    <div class="map-atmosphere"></div><div class="map-grid-floor"></div><div class="landing-orbit orbit-one"></div><div class="landing-orbit orbit-two"></div>
+    <canvas id="geo-network" aria-hidden="true"></canvas>
+    <div class="landing-core"><span>GEO</span><small id="geo-core-label">DISCOVERY ENGINE</small></div>
+    <div id="geo-platform-nodes" class="geo-platform-nodes"></div>
+    <div class="map-toolbar"><span><i></i> 平台连接网络</span><div><button id="geo-pause" type="button" aria-label="暂停自动旋转" aria-pressed="false" title="暂停自动旋转">Ⅱ</button><button id="geo-direction" type="button" aria-label="反转卫星运行方向" aria-pressed="false" title="反转卫星运行方向">⇄</button><button id="geo-reset" type="button" aria-label="重置球体视角" title="重置视角">↺</button></div></div>
+    <div class="map-instructions">拖动旋转 <span>·</span> 方向键调整 <span>·</span> 点击平台看状态</div>
+    <div class="network-selection" role="group" aria-label="本机平台连接状态，仅查看，不会发送问题"><div class="selection-text"><div><b id="geo-selected-name">平台网络</b><span id="geo-selected-channel" hidden>选择一个节点</span></div><p id="geo-selected-status" role="status" aria-live="polite">正在读取本机连接状态…</p></div><button id="geo-configure" type="button" aria-label="配置所选平台的连接" disabled>连接 ↗</button></div>
+   </div>
+  </div>
+  <div class="landing-platforms"><div class="landing-section-label">可选择的 AI 平台<span><b id="landing-platform-count">6</b> 个平台 · 支持单选或多选</span></div><div class="landing-platform-list" id="landing-platform-list"><span>豆包</span><span>DeepSeek</span><span>Kimi</span><span>千问</span><span>元宝</span><span>知乎直答</span></div><p class="landing-platform-note">点击平台名称可管理连接；实际发送到哪些平台，由你在下一步选择。</p></div>
+  <div class="landing-capabilities">
+   <a class="landing-capability" href="#insights"><span class="landing-feature-icon">⌕</span><div><small>01 / DISCOVER</small><h2>看见品牌的真实表现</h2><p>不同平台，按各自问题与来源方向观察。区分品牌提及、企业名称与官网链接。</p></div></a>
+   <a class="landing-capability" href="#results"><span class="landing-feature-icon">▤</span><div><small>02 / UNDERSTAND</small><h2>每个结论，都能回看</h2><p>提示词、回答、截图与来源记录，让观察有依据，让变化可解释。</p></div></a>
+   <a class="landing-capability" href="#company"><span class="landing-feature-icon">↗</span><div><small>03 / EVOLVE</small><h2>把观察变成下一步</h2><p>按关键词与时间追踪趋势，整理公开资料，为下一轮检查做好准备。</p></div></a>
+  </div>
+  <div class="landing-bottom"><div><span class="landing-pulse"></span> 从一个真实问题开始，而不是一个未经验证的结论。</div><a href="#overview">探索你的工作空间 ↗</a></div>
+  <div class="landing-footer"><span>AI GEO <small>· 品牌可见度工作台</small></span><span>网页与 API 分开观测。资料研读不代表永久收录。</span><small><a href="https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-topography-bathymetry/" target="_blank" rel="noopener noreferrer">地球纹理：NASA Earth Observatory</a> · v2.0.0</small></div>
+ </div>
+</section>

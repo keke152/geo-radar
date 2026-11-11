@@ -1,0 +1,5 @@
+Natural Earth 1:110m Physical Vectors — Land
+Source: https://www.naturalearthdata.com/downloads/110m-physical-vectors/110m-land/
+Data repository: https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_land.geojson
+Natural Earth is public domain. Source terms: https://www.naturalearthdata.com/about/terms-of-use/
+Coordinates rounded to 0.001 degree for this offline globe illustration. Political boundaries are not depicted.

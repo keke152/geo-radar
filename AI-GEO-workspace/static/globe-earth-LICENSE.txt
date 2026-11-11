@@ -1,0 +1,29 @@
+Earth surface texture: NASA Blue Marble: Next Generation, July 2004 composite
+Credit: NASA Earth Observatory, Blue Marble: Next Generation.
+This historical composite is used as a decorative globe surface, not live imagery.
+
+Official source:
+https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-topography-bathymetry/
+Original 5400 x 2700 JPEG:
+https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/bmng-topography-bathymetry/july/world.topo.bathy.200407.3x5400x2700.jpg
+Local file: globe-earth.jpg (original JPEG, unmodified)
+
+NASA Earth FAQ states that most NASA Earth imagery may be reused, including
+commercially, unless a separate copyright is identified. NASA credit is required.
+No NASA logo, employee likeness, endorsement or affiliation is implied here.
+Usage guidance:
+https://science.nasa.gov/earth/faq/
+https://www.nasa.gov/nasa-brand-center/images-and-media/
+
+Cloud layer: NASA Blue Marble cloud composite, unchanged 2048 x 1024 JPEG
+Local file: globe-clouds.jpg
+Credit: NASA Goddard Space Flight Center; Reto Stöckli (clouds); Robert Simmon
+(enhancements). The source is a historical composite, not live weather.
+Primary source:
+https://science.nasa.gov/earth/earth-observatory/the-blue-marble-true-color-global-imagery-at-1km-resolution/
+Original JPEG:
+https://assets.science.nasa.gov/content/dam/science/esd/eo/content-feature/bluemarble/images/cloud_combined_2048.jpg
+Rendered by converting source brightness into cloud opacity over the day map.
+
+City lights, links and platform satellites are illustrative client
+visual effects and are not measured observations or actual transmissions.

@@ -1,0 +1,36 @@
+/* A quiet business workspace; the interactive landing page keeps its own palette. */
+:root{--ink:#233247;--muted:#708093;--green:#315f80;--line:#e4e9ee;--bg:#f4f6f8}
+body:not(.landing-view){color:#233247;background:#f4f6f8}
+body>aside{background:#fff;color:#566577;border-right:1px solid #e4e9ee;padding-inline:17px}
+body>aside>.logo{color:#1b2e40;gap:10px;padding-left:7px}
+body>aside .logo-mark{color:#315f80;background:#eef3f7;border-color:#e0e7ee;border-radius:8px}
+body>aside .logo small{color:#778897;letter-spacing:1px;font-size:8px}
+body>aside>.company{background:#f5f7f9;border-color:#e8edf1;border-radius:7px;gap:9px}
+body>aside>.company>span{background:#e5edf4;color:#42627d;border-radius:5px}
+body>aside>.company b{color:#31465b;font-size:12px}
+body>aside>.company small{color:#7a8b9b;font-size:10px}
+body>aside>.nav-label{color:#95a1ad;font-size:10px;letter-spacing:.5px}
+body>aside>nav>a{color:#748495;border-radius:6px;gap:11px}
+body>aside>nav>a>span{color:#58697b;font-size:12px}
+body>aside>nav>a:hover{background:#f4f7fa}
+body>aside>nav>a.active,body>aside>nav>a.active:hover{background:#eaf0f5;border-color:transparent;box-shadow:none;color:#2d5374}
+body>aside>nav>a.active>span{color:#2d5374;font-weight:600}
+.nav-icon{width:17px;height:17px;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+body>aside nav em{background:#edf1f5;color:#62758a;border-radius:4px}
+body>aside>.aside-bottom{border-color:#e9edf1;color:#5f7386}
+body>aside>.aside-bottom small,body>aside>.aside-bottom>span:last-child{color:#8d9ba8}
+body>aside>.aside-bottom .live-dot{background:#5a8a72}
+body>aside>nav:hover,body>aside>nav:focus-within{scrollbar-color:#bac5cf transparent}
+body:not(.landing-view) .page-heading h1{font-size:25px;font-weight:600;letter-spacing:0;color:#233247}
+body:not(.landing-view) .eyebrow{color:#8494a4;letter-spacing:1.1px}
+.panel,.platform-card,.document-card,.metrics article{border-radius:9px;box-shadow:0 1px 2px #1a2b3d03}
+.btn{border-radius:6px;color:#526d83}.btn.primary{background:#315f80;border-color:#315f80}.btn.primary:hover{background:#244a66}
+body:not(.landing-view) input:not([type=checkbox]):not([type=radio]),body:not(.landing-view) textarea,body:not(.landing-view) select{color:#3c556c;border-color:#dce3ea}
+.insight-scope-note,.task-measurement{font-size:12px;color:#506b81;background:#eef3f7;border:1px solid #dfe7ef;border-radius:7px;padding:12px 15px;line-height:1.8;margin-bottom:20px}
+.task-measurement{margin-top:14px}.task-measurement p{margin-block:7px!important;color:#4c657b!important}.task-measurement small{font-size:10px;color:#7b8d9e}
+.insight-controls{flex-wrap:wrap}.insight-controls label{min-width:125px}
+.keyword-plan-form{display:flex;align-items:end;gap:18px;flex-wrap:wrap;padding-bottom:12px}.keyword-plan-form label:not(.check){margin:0!important;font-size:12px}.keyword-plan-form input[type=time]{margin-top:6px;min-width:125px}.keyword-plan-form input[type=number]{max-width:110px;display:block;margin-top:6px}
+.keyword-plan-form .check{margin:0 0 9px}.keyword-plan-info{padding:0 24px 18px;font-size:11px;color:#6e8294;line-height:1.8}.keyword-plan-info p{margin:3px 0}.candidate-row{align-items:start}.candidate-row .grow b{display:block;line-height:1.8;color:#364f66}.candidate-row small{color:#8a99a7}.candidate-score{font-size:17px;font-weight:600;color:#456e87;text-align:center;min-width:42px}.candidate-score small{font-size:9px;font-weight:400;display:block}
+.measurement-panel{line-height:1.9}.measurement-panel p{font-size:11px}.matrix-answer{background:#fafcfd;border-color:#e2e8ee;color:#547187}.matrix-answer.has-brand{background:#eff6f5}
+@media(max-width:850px){.candidate-row{flex-wrap:wrap}.candidate-row .grow{flex-basis:65%}.insight-controls label{min-width:115px;flex:1}}
+@media(max-width:650px){body>aside{padding-inline:5px}.keyword-plan-form{gap:12px}.keyword-plan-info{padding-inline:17px}.insight-controls label{min-width:0;flex-basis:40%}.candidate-score{display:none}}

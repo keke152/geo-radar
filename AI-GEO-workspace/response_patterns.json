@@ -1,0 +1,47 @@
+{
+  "default": {
+    "user": "[data-message-role='user'],[data-role='user'],[data-testid='user-message'],.user-message,.message.user",
+    "assistant": "[data-message-role='assistant'],[data-role='assistant'],[data-testid='assistant-message'],.assistant-message,.message.assistant",
+    "content": "[data-testid='message_text_content'],.markdown,.markdown-body,.ds-markdown,.qwen-markdown,.hyc-content-text"
+  },
+  "doubao": {
+    "user": "[data-message-role='user']",
+    "assistant": "[data-message-role='assistant']",
+    "content": "[data-testid='message_text_content']"
+  },
+  "kimi": {
+    "user": ".segment-user,[data-message-role='user'],[data-role='user']",
+    "assistant": ".segment-assistant,[data-message-role='assistant'],[data-role='assistant']",
+    "content": ".toolcall-rollup__tail .markdown, .segment-content-box > .markdown, .segment-content-box > .markdown-container > .markdown",
+    "require_content": true,
+    "done": ".segment-assistant-actions .icon-button"
+  },
+  "deepseek": {
+    "user": ".ds-message:not(:has(.ds-markdown))",
+    "assistant": ".ds-virtual-list-visible-items > div:has(.ds-assistant-message-main-content), .ds-message:has(.ds-assistant-message-main-content)",
+    "content": ".ds-assistant-message-main-content",
+    "done": ".ds-button[aria-label='朗读']"
+  },
+  "qwen": {
+    "user": "[class*='message-select-wrapper-question-']",
+    "assistant": "[class*='message-select-wrapper-answer-']",
+    "content": ".markdown-pc-special-class",
+    "done": ".qk-markdown-complete"
+  },
+  "yuanbao": {
+    "user": ".agent-chat__list__item--human,[data-role='user']",
+    "assistant": ".agent-chat__list__item--ai,[data-role='assistant']",
+    "content": ".hyc-common-markdown",
+    "done": ".hyc-content-md-done"
+  },
+  "zhihu": {
+    "user": ".css-146c3p1:not(.r-dnmrzs)",
+    "user_exclude": ".Render-markdown,[data-testid='Button:find_page_history_record_word_btn']",
+    "single_question_path": "^/search/\\d+/?$",
+    "single_question_query_path": "^/search/?$",
+    "single_question_query_param": "q",
+    "assistant": ".Render-markdown",
+    "content": ".Render-markdown",
+    "done": "[data-testid='Button:zhida_message_copy_btn'],[data-testid='Button:zhida_message_re_answer_btn']"
+  }
+}
