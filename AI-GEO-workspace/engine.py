@@ -234,6 +234,7 @@ class Runner:
     pid=row['platform'];cfg=configs[pid];page=self.browser.current_page(pid);reason=''
     if page is None and not (cfg['ready'] and self.browser.profile_saved(pid)):reason=f"{PLATFORMS[pid]['name']}专用窗口未连接。请连接并本人登录后继续此任务。"
     elif not cfg['ready']:reason='尚未允许自动发送，请检查控件并保存配置后继续。'
+    elif getattr(self.browser,'page_guards',{}).get(pid,{}).get('needs_user_action'):reason=self.browser.page_guards[pid]['message']+' 完成后请检查连接，再手动继续此任务。'
     elif not cfg['composer'] or not (cfg['send_button'] or cfg['send_key'] in ('Enter','Control+Enter')):reason='输入框或发送方式尚未配置，请检查后继续。'
     elif row['mode']=='visibility' and json.loads(row['metrics']).get('conversation_mode','fresh')=='fresh' and not cfg['new_chat_selector']:reason='独立检查缺少新对话入口，请配置后继续。'
     if reason:changed+=c.execute("UPDATE tasks SET status='waiting_setup',note=?,updated_at=? WHERE id=? AND deleted_at IS NULL AND status='queued'",(reason,now(),row['id'])).rowcount

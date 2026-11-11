@@ -206,11 +206,11 @@ function configModal(pid){
   const fingerprint=controlFingerprint();
   try{const r=await post(`/api/platforms/${pid}/inspect`,{config:platformFormValue()});
    if(!current()||fingerprint!==controlFingerprint())return;
-   if(confirmLogin&&r.open)form._loginConfirmed=true;
+   if(r.needs_user_action)form._loginConfirmed=false;else if(confirmLogin&&r.open)form._loginConfirmed=true;
    refreshCalibrationStatus(r);
-   const message=r.open?(r.composer_editable?'连接检查通过：工作台已接管窗口，输入框可用。第二步已完成，可以继续第三步配置发送方式。':'窗口已经连接，输入框尚未就绪。请等待平台加载、本人完成登录后再次检查。'):r.connection_error||'工作台尚未接管该平台专用窗口，请在第一步重新连接。';
+   const message=r.needs_user_action?r.message:r.open?(r.composer_editable?'连接检查通过：工作台已接管窗口，输入框可用。第二步已完成，可以继续第三步配置发送方式。':'窗口已经连接，输入框尚未就绪。请等待平台加载、本人完成登录后再次检查。'):r.connection_error||'工作台尚未接管该平台专用窗口，请在第一步重新连接。';
    $('#guide-inspect').textContent=message;
-   if(confirmLogin||!r.open)connectionFeedback(message,!r.open);
+   if(confirmLogin||!r.open||r.needs_user_action)connectionFeedback(message,!r.open||r.needs_user_action);
   }catch(e){if(current())connectionFeedback(e.message,true);}finally{form._checking=false;buttons.forEach(b=>b.disabled=false);}
  }
  $('#inspect-platform').onclick=()=>inspectCurrent(true);
@@ -220,6 +220,7 @@ function configModal(pid){
   const button=$('#detect-controls');button.disabled=true;
   try{await cancelActivePick();const r=await post(`/api/platforms/${pid}/diagnose`,{config:platformFormValue()});if(!current())return;
    if(!r.open)throw new Error(r.connection_error||'请先在第一步连接专用窗口');
+   if(r.needs_user_action)throw new Error(r.message);
    const changed=[];for(const [key,selector] of Object.entries(r.suggestions||{})){
     if(!$('#cfg-'+key)||!selector)continue;
     if(r.controls?.[key]?.found&&!r.controls[key].normalized)continue;

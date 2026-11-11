@@ -25,7 +25,22 @@ CONTROL_SCAN=r'''({config,include_candidates=false})=>{
   let node=e,parts=[];while(node&&node!==document.body){let n=1;for(let s=node.previousElementSibling;s;s=s.previousElementSibling)if(s.tagName===node.tagName)n++;parts.unshift(node.tagName.toLowerCase()+':nth-of-type('+n+')');node=node.parentElement;}
   return 'body > '+parts.join(' > ');
  };
- const action=e=>{
+ // Some React new-chat entries are divs without DOM onclick or button roles.
+ // Match only the full short action label and a visible pointer-sized control;
+ // never use this semantic fallback for a send target or an arbitrary div.
+ const freshLabel=e=>/^(?:新对话|开启新对话|newchat)(?:ctrl\+?j)?$/i.test((e.innerText||'').replace(/[\s\u200B\uFEFF]/g,''));
+ const freshTarget=e=>{
+  let target=null;
+  for(let node=e,depth=0;node&&node!==document.body&&depth<7;node=node.parentElement,depth++){
+   if(editor(node)||node.closest('textarea,input,[contenteditable=true]'))break;
+   if(node.matches('button,[role=button],a[href],input[type=submit],input[type=button]'))return null;
+   const rect=node.getBoundingClientRect();
+   if(node.tagName==='DIV'&&visible(node)&&freshLabel(node)&&getComputedStyle(node).cursor==='pointer'&&rect.width>=72&&rect.width<=480&&rect.height>=28&&rect.height<=96&&!node.querySelector('textarea,input,[contenteditable=true]'))target=node;
+  }
+  return target;
+ };
+ const action=(e,kind)=>{
+  if(kind==='new_chat_selector'){const fresh=freshTarget(e);if(fresh)return fresh;}
   for(let node=e,depth=0;node&&node!==document.body&&depth<7;node=node.parentElement,depth++){
    if(editor(node))return null;
    if(node.matches('button,[role=button],a[href],input[type=submit],input[type=button]'))return node;
@@ -66,8 +81,8 @@ CONTROL_SCAN=r'''({config,include_candidates=false})=>{
   if(!el)return {state:nodes.length?'hidden':kind==='send_button'&&empty?'missing_when_empty':'missing',message:nodes.length?'控件暂未显示':kind==='send_button'&&empty?'空输入时未找到，输入文字后再检查':'未找到，请重新识别',found:false,enabled:false};
   if(kind==='composer')return {state:composerEditable?'found':'wrong_target',message:composerEditable?'已找到可编辑输入框':'选中区域不能输入，请重新识别',found:composerEditable,enabled:composerEditable,selector:selector(el)};
   if(kind==='reply_selector')return {state:editor(el)?'wrong_target':'found',message:editor(el)?'选中了输入框，请重新标定回答区域':'已找到区域，仍需实际回答验证',found:!editor(el),enabled:true,selector:selector(el)};
-  const target=action(el);
-  if(!target)return {state:'wrong_target',message:editor(el)?'选中了输入框，并非发送按钮':'只命中图标或普通区域，请选择外层按钮',found:false,enabled:false,tag:el.tagName.toLowerCase()};
+  const target=action(el,kind);
+  if(!target)return {state:'wrong_target',message:editor(el)?(kind==='new_chat_selector'?'选中了输入框，并非新对话入口':'选中了输入框，并非发送按钮'):(kind==='new_chat_selector'?'只命中图标或普通区域，请选择新对话入口的完整按钮':'只命中图标或普通区域，请选择外层按钮'),found:false,enabled:false,tag:el.tagName.toLowerCase()};
   const inactive=disabled(target);
   return {state:inactive?(empty&&kind==='send_button'?'awaiting_text':'disabled'):'found',message:inactive?(empty&&kind==='send_button'?'按钮已找到，输入文字后才启用':'按钮已找到，当前不可用'):'已找到可点击控件',found:true,enabled:!inactive,selector:selector(target),normalized:target!==el,tag:target.tagName.toLowerCase()};
  };
@@ -77,9 +92,11 @@ CONTROL_SCAN=r'''({config,include_candidates=false})=>{
  if(controls.send_button.normalized)suggestions.send_button=controls.send_button.selector;
  if(controls.new_chat_selector.normalized)suggestions.new_chat_selector=controls.new_chat_selector.selector;
  const candidateNodes=[...document.querySelectorAll('button,[role=button],a[href],[class*=send],[class*=Send],[class*=submit],[class*=Submit],[aria-label],[title],svg use')];
- const actions=[...new Set(candidateNodes.filter(visible).map(action).filter(Boolean))];
+ const actions=[...new Set(candidateNodes.filter(visible).map(e=>action(e,'send_button')).filter(Boolean))];
+ const freshLabels=[...document.querySelectorAll('div')].filter(e=>visible(e)&&!editor(e)&&!e.closest('[contenteditable=true]')&&freshLabel(e));
+ const freshActions=[...new Set([...candidateNodes,...freshLabels].filter(visible).map(e=>action(e,'new_chat_selector')).filter(Boolean))];
  const send=actions.filter(e=>/send|发送|submit|enter[-_](button|icon)/i.test(label(e))&&!/upload|share|上传|分享|转发|发送文件|发送给/i.test(label(e)));
- const fresh=actions.filter(e=>/新对话|新建对话|开启新对话|new[-_ ]?chat|create[-_ ]?conversation/i.test(label(e)));
+ const fresh=freshActions.filter(e=>/新对话|新建对话|开启新对话|new[-_ ]?chat|create[-_ ]?conversation/i.test(label(e)));
  if(editors.length===1)suggestions.composer=selector(editors[0]);
  if(send.length===1&&!controls.send_button.found)suggestions.send_button=selector(send[0]);
  if(fresh.length===1&&!controls.new_chat_selector.found)suggestions.new_chat_selector=selector(fresh[0]);
@@ -94,7 +111,8 @@ CONTROL_SCAN=r'''({config,include_candidates=false})=>{
   const raw=composer?(composer.value??composer.innerText??''):'';
   result.composer_diagnostics=composer?{tag:composer.tagName.toLowerCase(),attrs:attr(composer),value_chars:typeof composer.value==='string'?composer.value.length:null,inner_text_chars:(composer.innerText||'').length,text_content_chars:(composer.textContent||'').length,raw_trimmed_chars:raw.trim().length,editable_descendants:[...composer.querySelectorAll('textarea,input,[contenteditable=true]')].slice(0,6).map(meta),placeholder_nodes:[...composer.querySelectorAll('[data-placeholder],[data-slate-placeholder],[placeholder],[aria-hidden=true]')].slice(0,16).map(e=>({...meta(e),text_chars:(e.textContent||'').length,text_equals_placeholder:!!e.getAttribute('data-placeholder')&&(e.textContent||'').trim()===e.getAttribute('data-placeholder').trim(),editable:e.isContentEditable}))}:null;
   let area=composer;for(let depth=0;area?.parentElement&&depth<4;depth++){if(area.querySelector('button,[role=button],svg'))break;area=area.parentElement;}
-  result.candidates={editors:editors.slice(0,6).map(meta),send:send.slice(0,8).map(meta),new_chat:fresh.slice(0,6).map(meta),near_editor:area?[...area.querySelectorAll('button,[role=button],[class*=icon],svg')].slice(0,24).map(meta):[],configured_send:config.send_button?[...(()=>{try{return document.querySelectorAll(config.send_button)}catch{return []}})()].slice(0,1).map(e=>({element:meta(e),ancestors:[e.parentElement,e.parentElement?.parentElement].filter(Boolean).map(meta)})):[]};
+  const freshMeta=e=>{const rect=e.getBoundingClientRect();return {...meta(e),visible:visible(e),cursor:getComputedStyle(e).cursor,width:Math.round(rect.width),height:Math.round(rect.height),exact_new_chat_label:freshLabel(e)};};
+  result.candidates={editors:editors.slice(0,6).map(meta),send:send.slice(0,8).map(meta),new_chat:fresh.slice(0,6).map(meta),new_chat_labels:freshLabels.slice(0,12).map(e=>{let node=e;const ancestors=[];for(let depth=0;node&&node!==document.body&&depth<7;depth++,node=node.parentElement)ancestors.push(freshMeta(node));return {element:freshMeta(e),ancestors};}),near_editor:area?[...area.querySelectorAll('button,[role=button],[class*=icon],svg')].slice(0,24).map(meta):[],configured_send:config.send_button?[...(()=>{try{return document.querySelectorAll(config.send_button)}catch{return []}})()].slice(0,1).map(e=>({element:meta(e),ancestors:[e.parentElement,e.parentElement?.parentElement].filter(Boolean).map(meta)})):[]};
  }
  return result;
 }'''

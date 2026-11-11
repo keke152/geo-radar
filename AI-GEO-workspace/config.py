@@ -6,7 +6,7 @@ ROOT=Path(__file__).resolve().parent
 load_dotenv(ROOT/'.env',override=False)
 HOME=Path(os.getenv('JUNHE_HOME',str(ROOT/'runtime'))).resolve()
 HOME.mkdir(parents=True,exist_ok=True)
-VERSION='2.0.0'
+VERSION='2.0.1'
 APP_NAME='GEO Radar · 品牌雷达'
 PLATFORMS={
  'doubao':{'name':'豆包','url':'https://www.doubao.com/chat/','api':'https://ark.cn-beijing.volces.com/api/v3/chat/completions','env':'ARK_API_KEY','docs':'https://www.volcengine.com/docs/82379'},

@@ -355,6 +355,7 @@ async def configure_platform(pid:str,body:PlatformConfig):
   except NeedsSetup as exc:raise HTTPException(409,'尚未保存：'+str(exc)) from exc
   except Exception as exc:raise HTTPException(409,'尚未保存：页面控件检查失败，请检查专用窗口或重新标定。') from exc
   if not inspection['open']:raise HTTPException(409,'尚未保存：专用Edge未打开，请先打开窗口并本人登录。')
+  if inspection.get('needs_user_action'):raise HTTPException(409,'尚未保存：'+inspection['message'])
   if not inspection['composer_found'] or not inspection['composer_editable']:raise HTTPException(409,'尚未保存：没有找到可编辑输入框，请使用“定位输入框”或重新标定。')
   if value['send_button'] and not inspection['send_found']:raise HTTPException(409,'尚未保存：'+inspection.get('controls',{}).get('send_button',{}).get('message','未找到发送按钮')+'。请重新识别，或明确选择平台支持的发送快捷键。')
   if value['send_button'] and inspection.get('controls',{}).get('send_button',{}).get('normalized'):value['send_button']=inspection['controls']['send_button']['selector']
@@ -398,8 +399,9 @@ async def platform_action(pid:str,action:str,body:Pick|None=None):
    return {'message':'工作台管理的浏览器已关闭，登录资料仍保存在本机' if owned else '工作台当前未接管该平台窗口。若旧专用Edge仍开着，请先关闭那个旧窗口，再重新连接。'}
   if action in ('inspect','reveal','diagnose'):
    cfg=body.config.model_dump() if body and body.config else get_meta('platform:'+pid)
-   if action=='diagnose':return await runner.browser.inspect(pid,cfg,include_candidates=True)
-   return await (runner.browser.reveal(pid,cfg) if action=='reveal' else runner.browser.inspect(pid,cfg))
+   result=await (runner.browser.inspect(pid,cfg,include_candidates=True) if action=='diagnose' else runner.browser.reveal(pid,cfg) if action=='reveal' else runner.browser.inspect(pid,cfg))
+   if result.get('needs_user_action'):raise HTTPException(409,result['message'])
+   return result
   if action=='cancel-pick':await runner.browser.cancel_pick(pid);return {'message':'已取消标定，现在可以正常操作专用网页'}
   if action=='pick':
    if not body or body.kind not in ('composer','send_button','reply_selector','new_chat_selector'):raise HTTPException(422,'标定类型无效')

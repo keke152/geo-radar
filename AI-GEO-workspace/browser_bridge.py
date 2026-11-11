@@ -5,6 +5,8 @@ from urllib.parse import urlsplit
 from config import HOME,PLATFORMS
 from controls import CONTROL_SCAN,DOUBAO_EMPTY_HOME_SCAN
 from responses import RESPONSE_SCAN,patterns
+from capture_viewport import REPLY_VIEWPORT
+from page_guard import PAGE_GUARD_SCAN,PAGE_GUARD_RESULTS
 
 class NeedsSetup(Exception):pass
 
@@ -58,17 +60,28 @@ PICKER=r'''(kind)=>{
  const over=e=>{if(hovered)hovered.style.outline=hovered.__junheOutline||'';hovered=e.target;hovered.__junheOutline=hovered.style.outline;hovered.style.outline='2px solid #e39832';};
  const cleanup=()=>{document.removeEventListener('click',click,true);document.removeEventListener('mouseover',over,true);document.removeEventListener('keydown',key,true);if(hovered)hovered.style.outline=hovered.__junheOutline||'';note.remove();window.__junhePickerCleanup=null;};
  const key=e=>{if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();window.__junhePick={cancelled:true};cleanup();}};
+ const freshLabel=e=>/^(?:新对话|开启新对话|newchat)(?:ctrl\+?j)?$/i.test((e.innerText||'').replace(/[\s\u200B\uFEFF]/g,''));
+ const freshTarget=e=>{
+  let target=null;
+  for(let node=e,depth=0;node&&node!==document.body&&depth<7;node=node.parentElement,depth++){
+   if(node.matches('textarea,input,[contenteditable=true]')||node.isContentEditable||node.closest('[contenteditable=true]'))break;
+   if(node.matches('button,[role=button],a[href],input[type=submit],input[type=button]'))return null;
+   const rect=node.getBoundingClientRect(),style=getComputedStyle(node);
+   if(node.tagName==='DIV'&&rect.width&&rect.height&&style.visibility!=='hidden'&&freshLabel(node)&&style.cursor==='pointer'&&rect.width>=72&&rect.width<=480&&rect.height>=28&&rect.height<=96&&!node.querySelector('textarea,input,[contenteditable=true]'))target=node;
+  }
+  return target;
+ };
  const click=e=>{
   e.preventDefault();e.stopImmediatePropagation();
   let el=e.target;
   if(kind==='send_button'||kind==='new_chat_selector'){
-   let target=null;
-   for(let node=el,depth=0;node&&node!==document.body&&depth<7;node=node.parentElement,depth++){
+   let target=kind==='new_chat_selector'?freshTarget(el):null;
+   for(let node=el,depth=0;!target&&node&&node!==document.body&&depth<7;node=node.parentElement,depth++){
     if(node.matches('textarea,input,[contenteditable=true]'))break;
     if(node.matches('button,[role=button],a[href]')){target=node;break;}
     if(!node.matches('svg,path,use')&&/send|submit|button|btn|enter[-_](button|icon)/i.test(typeof node.className==='string'?node.className:'')&&getComputedStyle(node).cursor==='pointer'){target=node;break;}
    }
-   if(!target){const error='这个位置不是可点击按钮。请点发送图标外层的按钮，或取消后在工作台明确选择发送快捷键。';window.__junhePick={kind,invalid:true,error};note.textContent=error;return;}
+   if(!target){const error=kind==='new_chat_selector'?'这个位置不是可识别的新对话入口。请点击“开启新对话”等完整按钮区域，或按ESC取消后重新选择。':'这个位置不是可点击按钮。请点发送图标外层的按钮，或取消后在工作台明确选择发送快捷键。';window.__junhePick={kind,invalid:true,error};note.textContent=error;return;}
    el=target;
   }
   if(kind==='composer'){
@@ -91,7 +104,15 @@ class BrowserBridge:
  def __init__(self):
   self.playwright=None;self.contexts={};self.pages={};self.lock=asyncio.Lock();self.platform_locks={}
   self.connection_locks={};self.startup_lock=asyncio.Lock();self.navigation_errors={};self.connection_errors={}
-  self.window_recovery={}
+  self.window_recovery={};self.page_guards={};self.navigation_retries={}
+ def login_page(self,pid,url):
+  target=urlsplit(url)
+  return pid=='zhihu' and target.scheme=='https' and target.hostname in ('www.zhihu.com','zhihu.com') and target.path.rstrip('/') in ('/signin','/login')
+ async def page_guard(self,pid,page,config=None):
+  result=await page.evaluate(PAGE_GUARD_SCAN,{'pid':pid,'config':config or {}})
+  if not isinstance(result,dict) or result.get('code') not in PAGE_GUARD_RESULTS:result=dict(PAGE_GUARD_RESULTS['ready'])
+  self.page_guards[pid]=result
+  return result
  def profile_saved(self,pid):
   return (HOME/'browser-profiles'/pid/'Default').is_dir()
  def current_page(self,pid):
@@ -101,7 +122,8 @@ class BrowserBridge:
   for candidate in reversed(getattr(context,'pages',[]) if context else []):
    if candidate.is_closed():continue
    try:self.valid_page(pid,candidate)
-   except NeedsSetup:continue
+   except NeedsSetup:
+    if not self.login_page(pid,candidate.url):continue
    self.pages[pid]=candidate;return candidate
   return None
  def connection_state(self,pid):
@@ -111,7 +133,8 @@ class BrowserBridge:
           'connection_error':self.connection_errors.get(pid,{}).get('message','') if not opened else '',
           'reason':self.connection_errors.get(pid,{}).get('code','not_connected') if not opened else 'connected',
           'profile_saved':self.profile_saved(pid),
-          'window_recovery':self.window_recovery.get(pid,{}),
+          'window_recovery':self.window_recovery.get(pid,{}),'page_guard':self.page_guards.get(pid,{}),
+          'navigation_retry_seconds':max(0,int(self.navigation_retries.get(pid,{}).get('next',0)-time.monotonic()+.999)),
           'login_verified':False,'note':'已保存登录资料可尝试恢复；窗口连接和账号登录分别检查'}
  async def _ensure_interactable_window(self,pid,page=None):
   """Restore only a minimized owned Chromium window; preserve other bounds.
@@ -173,13 +196,18 @@ class BrowserBridge:
    page=context.pages[0] if context.pages else await context.new_page();self.pages[pid]=page
    navigate=True
   if page.url in ('about:blank','') or self.navigation_errors.get(pid):navigate=True
+  if self.login_page(pid,page.url):navigate=False
+  if navigate and time.monotonic()<self.navigation_retries.get(pid,{}).get('next',0):navigate=False
   if navigate:
    try:
     await page.goto(PLATFORMS[pid]['url'],wait_until='domcontentloaded',timeout=25000)
     self.navigation_errors.pop(pid,None)
+    self.navigation_retries.pop(pid,None)
    except Exception:
     if page.is_closed():raise NeedsSetup('专用Edge窗口已关闭，请重新点击打开登录')
     self.navigation_errors[pid]='网页加载未确认，请在专用Edge中检查网络/刷新；没有登录或发送任何内容'
+    failures=self.navigation_retries.get(pid,{}).get('failures',0)+1
+    self.navigation_retries[pid]={'failures':failures,'next':time.monotonic()+min(30*2**min(failures-1,4),300)}
   await self._ensure_interactable_window(pid,page)
   await page.bring_to_front()
   return page
@@ -189,6 +217,7 @@ class BrowserBridge:
    await self.connect(pid)
    for attempt in range(5):
     result=await self.inspect(pid,config)
+    if result.get('needs_user_action'):raise NeedsSetup(result['message'])
     if result.get('composer_editable'):break
     if attempt<4:await asyncio.sleep(.5)
   except NeedsSetup:raise
@@ -218,10 +247,13 @@ class BrowserBridge:
  async def inspect(self,pid,config,include_candidates=False):
   page=self.current_page(pid)
   if page is None or page.is_closed():return {**self.connection_state(pid),'composer_found':False,'composer_editable':False,'composer_in_view':False,'send_found':False,'new_chat_found':False,'reply_found':False}
+  guard=await self.page_guard(pid,page,config)
+  if guard['needs_user_action']:
+   return {**self.connection_state(pid),**guard,'composer_found':False,'composer_editable':False,'composer_in_view':False,'send_found':False,'new_chat_found':False,'reply_found':False,'suggestions':{},'controls':{key:{'state':'blocked','found':False,'enabled':False,'message':guard['message']} for key in ('composer','send_button','new_chat_selector','reply_selector')}}
   self.valid_page(pid,page)
   result=await page.evaluate(CONTROL_SCAN,{'config':config,'include_candidates':include_candidates})
-  if result['composer_found']:self.navigation_errors.pop(pid,None)
-  return {**self.connection_state(pid),**result}
+  if result['composer_found']:self.navigation_errors.pop(pid,None);self.navigation_retries.pop(pid,None)
+  return {**self.connection_state(pid),**guard,**result}
  async def cancel_pick(self,pid):
   page=self.current_page(pid)
   if page and not page.is_closed():
@@ -260,13 +292,11 @@ class BrowserBridge:
    await page.wait_for_selector('[data-testid="message-list"]',state='attached',timeout=20000)
    answer='';last='';stable=0;sample={}
    for _ in range(30):
-    sample=await page.evaluate(PROMPT_REPLY,prompt)
+    sample=await self.response_snapshot(pid,config,prompt)
     current=sample.get('answer','')
     if current:
      stable=stable+1 if current==last else 0;last=current;answer=current
      if stable>=3:break
-    elif not sample.get('matched'):
-     await page.locator('[data-testid="message-list"]').evaluate('el=>{for(let p=el;p&&p!==document.documentElement;p=p.parentElement){if(p.scrollHeight>p.clientHeight+10&&/(auto|scroll)/.test(getComputedStyle(p).overflowY)){p.scrollTop=0;return;}}window.scrollTo(0,0);}')
     await asyncio.sleep(1)
    if not answer.strip():raise NeedsSetup('没有找到这条测试问题对应的回答，未改用后续提问的回答，也没有重发。请在该会话回到原问题后重试获取。')
    return {'answer':answer[:100000],'conversation_url':page.url,'links':list(dict.fromkeys(sample.get('links',[]))),
@@ -274,7 +304,28 @@ class BrowserBridge:
  async def response_snapshot(self,pid,config,prompt,baseline=None,diagnostic=False):
   page=self.current_page(pid)
   if page is None:raise NeedsSetup('专用窗口未连接')
-  return await page.evaluate(RESPONSE_SCAN,{'prompt':prompt,'pattern':patterns(pid),'reply_selector':config.get('reply_selector',''),'baseline':baseline,'diagnostic':diagnostic})
+  arguments={'prompt':prompt,'pattern':patterns(pid),'reply_selector':config.get('reply_selector',''),'baseline':baseline,'diagnostic':diagnostic}
+  result=await page.evaluate(RESPONSE_SCAN,arguments)
+  if diagnostic or pid!='doubao' or result.get('matched') or result.get('user_count') or not result.get('assistant_count'):return result
+  # A long answer can virtualize the preceding question. Recover only the
+  # conversation viewport and still require the full original prompt plus its
+  # adjacent answer; a lone visible assistant is never accepted as evidence.
+  original_url=page.url
+  viewport=await page.evaluate(REPLY_VIEWPORT,{'action':'top'})
+  if not viewport.get('moved'):return result
+  try:
+   for _ in range(4):
+    await asyncio.sleep(.2)
+    if page.url!=original_url:return result
+    recovered=await page.evaluate(RESPONSE_SCAN,arguments)
+    if recovered.get('matched'):
+     return {**recovered,'viewport_recovered':True}
+    result=recovered
+   return result
+  finally:
+   if not page.is_closed() and page.url==original_url:
+    try:await page.evaluate(REPLY_VIEWPORT,{'action':'restore','top':viewport['previous_top']})
+    except Exception:pass
  async def open_conversation(self,pid,config,url):
   page=self.current_page(pid)
   if page is None:await self.restore_session(pid,config);page=self.current_page(pid)
@@ -299,7 +350,7 @@ class BrowserBridge:
      result['stable']=time.monotonic()-changed>=2.4
      if result.get('done') and not result.get('busy') and result['stable']:break
     await asyncio.sleep(.8)
-   if not result.get('answer','').strip():raise NeedsSetup('没有可靠匹配到原问题与回答，未覆盖原记录，也没有重新提问')
+   if not result.get('answer','').strip():raise NeedsSetup((result.get('capture_issue') or '没有可靠匹配到原问题与回答')+'；未覆盖原记录，也没有重新提问')
    from storage import ident
    folder=HOME/'screenshots';folder.mkdir(exist_ok=True);name=ident()+'.png'
    try:await page.screenshot(path=str(folder/name),timeout=5000)
@@ -309,12 +360,13 @@ class BrowserBridge:
   async with self.platform_locks.setdefault(pid,asyncio.Lock()):
    page=self.current_page(pid)
    if page is None or page.is_closed():raise NeedsSetup('请先打开该平台的专用浏览器，并由本人完成登录')
-   self.valid_page(pid,page)
    if not config['ready']:raise NeedsSetup('请先标定输入框、发送按钮，并确认平台已校准')
    step='检查输入框与未发送草稿'
    try:
     await self._ensure_interactable_window(pid,page)
     initial=await self.inspect(pid,config)
+    if initial.get('needs_user_action'):raise NeedsSetup(initial['message'])
+    self.valid_page(pid,page)
     if not initial.get('composer_empty',True):raise NeedsSetup('当前平台输入框有未发送草稿，未覆盖文字或发送。请先在平台保存、发送或清空该草稿，再继续原任务。')
     fresh=config.get('conversation_mode','fresh')=='fresh'
     previous_url=page.url;previous_messages=None
@@ -351,6 +403,7 @@ class BrowserBridge:
     if not composer:raise NeedsSetup('新对话或可编辑输入框尚未就绪，可能需要登录、完成验证码或重新识别；本次尚未发送问题')
     step='读取原会话与填写问题'
     ready=await self.inspect(pid,config)
+    if ready.get('needs_user_action'):raise NeedsSetup(ready['message'])
     if not ready.get('composer_empty',True):raise NeedsSetup('准备期间输入框出现了未发送草稿，未覆盖文字或发送。请先处理平台中的草稿，再继续原任务。')
     baseline=await self.response_snapshot(pid,config,prompt)
     await composer.fill(prompt,timeout=10000)
@@ -406,7 +459,7 @@ class BrowserBridge:
   for key in targets:
    context=self.contexts.pop(key,None);self.pages.pop(key,None)
    self.navigation_errors.pop(key,None)
-   self.window_recovery.pop(key,None)
+   self.window_recovery.pop(key,None);self.page_guards.pop(key,None);self.navigation_retries.pop(key,None)
    if context:
     try:await context.close()
     except Exception:pass
