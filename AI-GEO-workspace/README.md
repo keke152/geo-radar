@@ -1,6 +1,48 @@
-# AI GEO 品牌可见度工作台
+# GEO Radar · 品牌雷达
 
-本地运行的多平台品牌观察工具。按平台设计独立问题，保存实际提示词、原始回答、截图与来源，分别观察品牌、企业名称和官网链接的出现情况。
+**分平台问题规划 · 回答证据留存 · 品牌可见度观察**
+
+![GEO Radar 品牌雷达封面](docs/images/showcase/cover.png)
+
+![Python 3.10–3.13](https://img.shields.io/badge/Python-3.10%E2%80%933.13-3776AB?logo=python&logoColor=white) ![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white) ![Playwright](https://img.shields.io/badge/Playwright-2EAD33?logo=playwright&logoColor=white) ![SQLite](https://img.shields.io/badge/SQLite-003B57?logo=sqlite&logoColor=white) ![Windows](https://img.shields.io/badge/Windows-10%20%2F%2011-0B6477)
+
+面向生成式搜索的多平台品牌可见度观察工作台。围绕一个业务主题，为六个平台独立规划问题，保留实际提示词、回答、截图与来源，分别观察品牌、企业名称和官网链接的出现情况。
+
+[界面导览](#界面导览) · [快速启动](#启动与首次使用) · [架构与指标](docs/architecture.md) · [检查与优化记录](docs/project-review-2026-11-11.md)
+
+## 界面导览
+
+以下均由项目真实界面渲染，使用隔离的演示企业、演示记录与统计占位内容。截图不包含真实平台回答或账号，图中的数字用于展示界面，不代表品牌效果。复现方式见[截图说明](docs/images/showcase/README.md)。
+
+### 工作区：任务、队列和当天额度
+
+![GEO Radar 任务工作区（隔离演示数据）](docs/images/showcase/workspace.png)
+
+任务按进行中、需处理、已完成分组；每条问题绑定自己的平台，队列状态、发送间隔与创建额度可以回看。
+
+### 规划：一个主题，各个平台独立提问
+
+![GEO Radar 分平台问题方案（隔离演示数据）](docs/images/showcase/planner.png)
+
+本地模板生成问题卡片，可逐条编辑并预览完整提示词；确认创建后才进入执行队列。
+
+### 观察：分开统计品牌、企业与官网链接
+
+![GEO Radar 可见度统计（隔离演示数据）](docs/images/showcase/insights.png)
+
+网页与 API、自然发现与指名核对分别观察。不同问题的回答不作为平台推荐排名。
+
+### 回看：筛选记录、核对回答、导出证据
+
+![GEO Radar 记录管理（隔离演示数据）](docs/images/showcase/records.png)
+
+保留实际问题、回答、来源与状态；支持 Excel、CSV、Markdown 报告和可恢复的历史清理。
+
+### 产品首页：交互式地球与平台连接网络
+
+![GEO Radar 产品首页（隔离演示数据）](docs/images/showcase/home.png)
+
+地球与卫星轨道是本地视觉演示；节点用于查看连接状态，执行目标以已确认的问题卡片为准。
 
 ## v2.0.0：从统一分发改为分平台规划
 
@@ -88,4 +130,4 @@
 .\.venv\Scripts\python tests\ui_submission_checks.py
 ```
 
-2026-11-11 本地检查通过234项单元／HTTP测试，覆盖分平台路由、禁止统一分发、去重、幂等、额度、定时计划原子提交、异常恢复、本机访问校验、迁移与原有记录管理。另有6项提交交互回归、12个编辑器内容场景、4个豆包空欢迎页场景及21个回答关联 DOM 场景检查通过。页面流程使用隔离数据验证。本轮未向真实 AI 平台重新发送问题，不代表六个平台实站均已完成端到端发送验收。
+2026-11-11 本地检查通过235项单元／HTTP测试，覆盖分平台路由、禁止统一分发、去重、幂等、额度、定时计划原子提交、异常恢复、本机访问校验、迁移与原有记录管理。另有6项提交交互回归、12个编辑器内容场景、4个豆包空欢迎页场景及21个回答关联 DOM 场景检查通过。页面流程使用隔离数据验证。本轮未向真实 AI 平台重新发送问题，不代表六个平台实站均已完成端到端发送验收。

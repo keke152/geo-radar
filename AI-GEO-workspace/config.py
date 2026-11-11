@@ -7,6 +7,7 @@ load_dotenv(ROOT/'.env',override=False)
 HOME=Path(os.getenv('JUNHE_HOME',str(ROOT/'runtime'))).resolve()
 HOME.mkdir(parents=True,exist_ok=True)
 VERSION='2.0.0'
+APP_NAME='GEO Radar · 品牌雷达'
 PLATFORMS={
  'doubao':{'name':'豆包','url':'https://www.doubao.com/chat/','api':'https://ark.cn-beijing.volces.com/api/v3/chat/completions','env':'ARK_API_KEY','docs':'https://www.volcengine.com/docs/82379'},
  'deepseek':{'name':'DeepSeek','url':'https://chat.deepseek.com/','api':'https://api.deepseek.com/chat/completions','env':'DEEPSEEK_API_KEY','docs':'https://api-docs.deepseek.com/zh-cn/'},

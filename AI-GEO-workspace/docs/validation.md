@@ -2,6 +2,12 @@
 
 最近本地检查：2026-11-11。Windows / Python 3.12 / Microsoft Edge。修复与验证范围见[项目检查记录](project-review-2026-11-11.md)。下方保留早期版本验证历史。
 
+## 2026-11-11：GEO Radar 品牌与图文展示
+
+用户可见名称同步为「GEO Radar · 品牌雷达」，内部服务标识与运行目录保留兼容。完整单元／HTTP 回归共235项通过，提交交互回归6项通过。README新增封面、5张隔离界面图、能力与流程说明。
+
+截图通过真实界面与隔离TestClient生成；两个后台执行器实际存活、队列保持暂停。网页/API发送调用、外部请求、新建批次和页面JS错误均为0。复现脚本为 `tests/showcase_capture.py`，详见[素材说明](images/showcase/README.md)及[捕获报告](images/showcase/capture-report.json)。
+
 ## v1.1新增验证
 
 v1.1.1：80项测试通过，新增已保存资料恢复、失败不发送、旧任务不自动排队、受管标签页恢复与恢复状态验证。浏览器隔离夹具验证逐条继续及动态状态。六个真实平台恢复窗口并做只读检查；Kimi修正2条失效规则，没有新问题发送。详见[会话恢复说明](session-recovery-v111.md)。

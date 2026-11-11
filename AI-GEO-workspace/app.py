@@ -8,7 +8,7 @@ from fastapi import FastAPI,HTTPException,Request,UploadFile,File,Query
 from fastapi.responses import FileResponse,Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel,Field
-from config import ROOT,HOME,VERSION,PLATFORMS,supported_channels
+from config import ROOT,HOME,VERSION,APP_NAME,PLATFORMS,supported_channels
 from storage import init,db,get_meta,set_meta,records,ident,now,update_task
 from domain import make_prompt,analyze,brand_hint,public_pack
 from engine import Runner,create_batch
@@ -33,7 +33,7 @@ async def lifespan(app):
  yield
  await runner.stop()
 
-app=FastAPI(title='AI GEO 品牌可见度工作台',version=VERSION,lifespan=lifespan)
+app=FastAPI(title=APP_NAME,version=VERSION,lifespan=lifespan)
 app.mount('/static',StaticFiles(directory=ROOT/'static'),name='static')
 
 @app.middleware('http')

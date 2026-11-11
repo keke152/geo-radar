@@ -4,7 +4,7 @@ from unittest.mock import patch,MagicMock
 import test_workspace
 from fastapi.testclient import TestClient
 import app,client_window,start_desktop
-from config import ROOT,PLATFORMS,VERSION
+from config import ROOT,PLATFORMS,VERSION,APP_NAME
 from storage import init,db,ident,now
 
 class ClientShellTests(unittest.TestCase):
@@ -25,7 +25,12 @@ class ClientShellTests(unittest.TestCase):
   body=self.client.get('/').text
   self.assertEqual(body.count('id="batch-form"'),1);self.assertEqual(body.count('id="task-composer"'),1)
   self.assertIn(f'data-ui-version="{VERSION}"',body);self.assertIn('client-menu-toggle',body)
+  self.assertIn(f'<title>{APP_NAME}</title>',body)
+  self.assertIn('<b>GEO Radar</b><small>品牌雷达</small>',body)
   self.assertNotIn('让品牌，被准确看见。',body)
+ def test_public_product_name_preserves_service_identity(self):
+  self.assertEqual(self.client.get('/openapi.json').json()['info']['title'],APP_NAME)
+  self.assertEqual(self.client.get('/api/health').json()['service'],'ai-geo-workspace')
  def test_bootstrap_version_and_counts_come_from_all_records(self):
   for _ in range(153):self.task('waiting_setup')
   self.task('completed');self.task('queued');self.task('running')

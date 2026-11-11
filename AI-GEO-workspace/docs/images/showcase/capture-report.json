@@ -1,0 +1,69 @@
+{
+  "application": "GEO Radar · 品牌雷达",
+  "captured_at": "2026-11-11T11:08:54+08:00",
+  "data_label": "演示数据",
+  "fixture": {
+    "completed_placeholders": 42,
+    "attention_placeholders": 6,
+    "platforms": 6,
+    "profile": "海岚生物（演示企业）"
+  },
+  "screenshots": [
+    {
+      "file": "home.png",
+      "scene": "真实地球产品首页；六个平台均未连接，仅展示本机连接状态",
+      "width": 1440,
+      "height": 950,
+      "demo_ribbon": true
+    },
+    {
+      "file": "planner.png",
+      "scene": "真实本地模板生成的双平台独立问题方案；未点击创建",
+      "width": 1440,
+      "height": 1160,
+      "demo_ribbon": true
+    },
+    {
+      "file": "workspace.png",
+      "scene": "任务工作台；演示待配置、待核对与中断状态，后台已暂停",
+      "width": 1440,
+      "height": 950,
+      "demo_ribbon": true
+    },
+    {
+      "file": "insights.png",
+      "scene": "统计看板核心指标与六平台明细；42条名称匹配占位记录，不代表平台实测",
+      "width": 1440,
+      "height": 950,
+      "demo_ribbon": true
+    },
+    {
+      "file": "records.png",
+      "scene": "历史记录；真实分页、平台筛选与导出入口，条目均为本地演示数据",
+      "width": 1440,
+      "height": 950,
+      "demo_ribbon": true
+    }
+  ],
+  "all_http_intercepted": true,
+  "external_requests": 0,
+  "platform_messages_sent": 0,
+  "created_batches": 0,
+  "page_errors": [],
+  "local_mutations": [
+    "/api/platform-plans/preview"
+  ],
+  "real_runner": {
+    "worker_alive_during_capture": true,
+    "scheduler_alive_during_capture": true,
+    "queue_state": "paused",
+    "stopped_after_capture": true
+  },
+  "send_barriers": {
+    "BrowserBridge.send_calls": 0,
+    "engine.api_send_calls": 0,
+    "keyword_plan_enabled": false,
+    "execution_schedule_count": 0
+  },
+  "sample_note": "样本为明确标注的名称匹配占位文本，并非任何平台实际回答；统计数字不能作为平台评估证据。"
+}

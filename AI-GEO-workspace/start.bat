@@ -14,7 +14,7 @@ if not errorlevel 1 goto launch
 .venv\Scripts\python.exe -m pip install -r requirements.txt
 if errorlevel 1 goto failed
 :launch
-echo Starting AI GEO at http://127.0.0.1:8020 ...
+echo Starting GEO Radar at http://127.0.0.1:8020 ...
 .venv\Scripts\python.exe start_desktop.py
 if errorlevel 1 goto failed
 exit /b 0

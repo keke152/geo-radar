@@ -1,4 +1,4 @@
-﻿AI GEO 品牌可见度工作台 v2.0.0
+﻿GEO Radar · 品牌雷达 v2.0.0
 
 双击 start.bat 或 open_client.bat 启动；需要 Python 和 Microsoft Edge。
 普通浏览器入口：open_browser.bat。
