@@ -22,7 +22,7 @@ def analyze(answer,profile):
  for url in urls:
   try:
    host=(urlsplit(url).hostname or '').lower().removeprefix('www.')
-   if host==domain:matches.append(url.rstrip('。，；、'))
+   if domain and host==domain:matches.append(url.rstrip('。，；、'))
   except ValueError:pass
  return {'brand_mentioned':brand,'company_mentioned':company,'brand_name_mentioned':brand,'any_name_mentioned':company or brand,
          'company_matches':company_matches,'brand_matches':brand_matches,
@@ -41,7 +41,8 @@ def make_prompt(keyword,mode):
          +evidence+'\n\n本次问题：'+keyword+'\n请整理一份有出处的回答，并标明待核验内容。')
 
 def brand_hint(keyword,profile):
- return name_present(keyword,[profile['company_name'],*profile.get('aliases',[]),*brand_names(profile),profile['domain'],'junheprobio'])
+ domain=profile['domain'];legacy_hint=['junheprobio'] if domain.lower().removeprefix('www.')=='junheprobio.com' else []
+ return name_present(keyword,[profile['company_name'],*profile.get('aliases',[]),*brand_names(profile),domain,*legacy_hint])
 
 def public_pack(profile):
  domain=profile['domain']

@@ -1,8 +1,8 @@
 """Dedicated, visible Edge profiles. Human login and selector calibration are required."""
 import asyncio,os,time
-from pathlib import Path
 from urllib.parse import urlsplit
-from config import HOME,PLATFORMS
+from config import PLATFORMS
+from projects import project_home
 from controls import CONTROL_SCAN,DOUBAO_EMPTY_HOME_SCAN
 from responses import RESPONSE_SCAN,patterns
 from capture_viewport import REPLY_VIEWPORT
@@ -114,7 +114,7 @@ class BrowserBridge:
   self.page_guards[pid]=result
   return result
  def profile_saved(self,pid):
-  return (HOME/'browser-profiles'/pid/'Default').is_dir()
+  return (project_home()/'browser-profiles'/pid/'Default').is_dir()
  def current_page(self,pid):
   page=self.pages.get(pid)
   if page is not None and not page.is_closed():return page
@@ -185,7 +185,7 @@ class BrowserBridge:
    try:
     # Use the actual native client size: a fixed emulated height can place a
     # bottom-fixed composer below the physical Edge window on smaller screens.
-    context=await self.playwright.chromium.launch_persistent_context(str(HOME/'browser-profiles'/pid),channel='msedge',headless=os.getenv('JUNHE_BROWSER_HEADLESS')=='1',no_viewport=True,args=['--start-maximized'],accept_downloads=False)
+    context=await self.playwright.chromium.launch_persistent_context(str(project_home()/'browser-profiles'/pid),channel='msedge',headless=os.getenv('JUNHE_BROWSER_HEADLESS')=='1',no_viewport=True,args=['--start-maximized'],accept_downloads=False)
    except Exception as exc:
     code,message=browser_launch_failure(exc);self.connection_errors[pid]={'code':code,'message':message}
     raise NeedsSetup(message) from exc
@@ -352,7 +352,7 @@ class BrowserBridge:
     await asyncio.sleep(.8)
    if not result.get('answer','').strip():raise NeedsSetup((result.get('capture_issue') or '没有可靠匹配到原问题与回答')+'；未覆盖原记录，也没有重新提问')
    from storage import ident
-   folder=HOME/'screenshots';folder.mkdir(exist_ok=True);name=ident()+'.png'
+   folder=project_home()/'screenshots';folder.mkdir(exist_ok=True);name=ident()+'.png'
    try:await page.screenshot(path=str(folder/name),timeout=5000)
    except Exception:name=''
    return {**result,'conversation_url':page.url,'screenshot':name}
@@ -448,12 +448,28 @@ class BrowserBridge:
       if sample.get('matched') and sample.get('done') and not sample.get('busy') and sample['stable']:break
       if not sample.get('matched') and time.monotonic()-changed>=8 and time.monotonic()-began>=12:break
     except Exception:pass
-   folder=HOME/'screenshots';folder.mkdir(exist_ok=True)
+   folder=project_home()/'screenshots';folder.mkdir(exist_ok=True)
    from storage import ident
    screenshot=ident()+'.png'
    try:await page.screenshot(path=str(folder/screenshot),full_page=False,timeout=5000)
    except Exception:screenshot=''
    return {**sample,'answer':answer,'screenshot':screenshot,'conversation_url':page.url,'note':'已保留回答与截图；未能确认完整性或问题对应时才需要人工检查。'}
+ async def check_project_switch(self):
+  """Read the draft flags before closing the departing project's windows."""
+  for pid,context in self.contexts.items():
+   config=get_meta('platform:'+pid);name=PLATFORMS[pid]['name']
+   for page in context.pages:
+    if page.is_closed():continue
+    try:
+     self.valid_page(pid,page)
+     guard=await self.page_guard(pid,page,config)
+     if guard['needs_user_action']:raise NeedsSetup(guard['message'])
+     state=await page.evaluate(CONTROL_SCAN,{'config':config})
+    except Exception as exc:
+     raise NeedsSetup(f'{name}有未确认的窗口，请先处理或关闭该平台专用窗口，再切换项目。') from exc
+    if state.get('composer_empty') is False:
+     raise NeedsSetup(f'{name}输入框有未发送草稿，请先处理草稿，再切换项目。')
+
  async def close(self,pid=None):
   targets=[pid] if pid else list(self.contexts)
   for key in targets:

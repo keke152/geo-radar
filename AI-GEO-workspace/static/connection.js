@@ -27,7 +27,8 @@
  function pending(){if(state.problem){button.disabled=true;button.textContent='正在重连…';}}
  function retryIn(ms){state.retryMs=ms;button.disabled=false;button.textContent='立即重连';button.title='后台将在约'+Math.round(ms/1000)+'秒后自动重连；也可立即重试';}
  async function request(url,options={}){
-  const controller=new AbortController(),{timeoutMs,...config}=options;
+  const controller=new AbortController(),{timeoutMs,projectControl=false,allowProjectChange=false,...config}=options;
+  const scoped=new URL(url,location.href);if(scoped.origin===location.origin&&scoped.pathname.startsWith('/api/')&&window.WorkspaceProjects&&!projectControl){await WorkspaceProjects.ensureReady();const project=WorkspaceProjects.assertCurrent();config.headers={...config.headers,'X-Workspace-Project':project};}
   const writing=!['GET','HEAD'].includes((config.method||'GET').toUpperCase());if(writing)state.pendingWrites++;
   const timeout=setTimeout(()=>controller.abort(),timeoutMs??((config.method||'GET')==='GET'?12000:120000));
   let response,raw;
@@ -37,9 +38,10 @@
    error.name='WorkspaceConnectionError';error.code='LOCAL_CONNECTION';show(error.message,true);throw error;
   }finally{clearTimeout(timeout);if(writing)state.pendingWrites--;}
   let value;try{value=JSON.parse(raw);}catch{value=null;}
+  window.WorkspaceProjects?.inspectResponse(response,value,{projectControl,allowProjectChange});
   if(!response.ok){
    const answerError=Array.isArray(value?.detail)&&value.detail.find(d=>(d.loc||[]).at(-1)==='answer');
-   const detail=typeof value?.detail==='string'?value.detail:answerError?answerError.type==='string_too_long'?'回答内容过长，最多支持100000个字符。':'回答内容为空或格式不正确。请先获取或粘贴平台的完整回答，再保存。':Array.isArray(value?.detail)?'请求参数不完整：'+value.detail.map(d=>(d.loc||[]).filter(s=>s!=='body').join('.')+' '+d.msg).join('；'):'本地服务返回 HTTP '+response.status+'，请检查运行日志或稍后重试。';
+   const detail=typeof value?.detail==='string'?value.detail:typeof value?.detail?.message==='string'?value.detail.message:answerError?answerError.type==='string_too_long'?'回答内容过长，最多支持100000个字符。':'回答内容为空或格式不正确。请先获取或粘贴平台的完整回答，再保存。':Array.isArray(value?.detail)?'请求参数不完整：'+value.detail.map(d=>(d.loc||[]).filter(s=>s!=='body').join('.')+' '+d.msg).join('；'):'本地服务返回 HTTP '+response.status+'，请检查运行日志或稍后重试。';
    const error=new Error(detail);error.status=response.status;throw error;
   }
   if(value===null||typeof value!=='object')throw new Error('本地服务返回的数据格式异常，请查看 runtime/logs/server.log。');

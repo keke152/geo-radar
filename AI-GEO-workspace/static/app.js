@@ -95,11 +95,13 @@ function render(){
 let refreshTimer=0,refreshFailures=0;
 function scheduleRefresh(delay){clearTimeout(refreshTimer);refreshTimer=setTimeout(()=>{if(document.hidden){scheduleRefresh(6000);return;}load();},delay);}
 async function load(){
+ if(window.WorkspaceProjects?.state.stale||window.WorkspaceProjects?.state.switching)return;
  if(loading)return;clearTimeout(refreshTimer);loading=true;WorkspaceConnection.pending();
- try{const fresh=await api('/api/bootstrap');window.WorkspaceVersion?.check(fresh.version);data=fresh;render();refreshFailures=0;WorkspaceConnection.connected();}
- catch(e){refreshFailures++;WorkspaceConnection.show(e.message,e.code==='LOCAL_CONNECTION');}
- finally{loading=false;const delay=refreshFailures?Math.min(60000,6000*2**Math.min(refreshFailures-1,4)):6000;WorkspaceConnection.retryIn(delay);scheduleRefresh(delay);}
+ try{await window.WorkspaceProjects?.ensureReady();const fresh=await api('/api/bootstrap');window.WorkspaceVersion?.check(fresh.version);data=fresh;render();window.WorkspaceProjects?.bindLinks();refreshFailures=0;WorkspaceConnection.connected();}
+ catch(e){refreshFailures++;if(e.code!=='PROJECT_CHANGED')WorkspaceConnection.show(e.message,e.code==='LOCAL_CONNECTION');}
+ finally{loading=false;if(!window.WorkspaceProjects?.state.stale&&!window.WorkspaceProjects?.state.switching){const delay=refreshFailures?Math.min(60000,6000*2**Math.min(refreshFailures-1,4)):6000;WorkspaceConnection.retryIn(delay);scheduleRefresh(delay);}}
 }
+addEventListener('workspace-project-changed',()=>clearTimeout(refreshTimer));
 window.retryWorkspace=()=>load();
 addEventListener('online',()=>{if(WorkspaceConnection.state.problem)load();});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)load();});

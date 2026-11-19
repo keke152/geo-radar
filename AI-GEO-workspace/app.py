@@ -5,10 +5,10 @@ from pathlib import Path
 from typing import Literal
 from xml.etree import ElementTree as ET
 from fastapi import FastAPI,HTTPException,Request,UploadFile,File,Query
-from fastapi.responses import FileResponse,Response
+from fastapi.responses import FileResponse,JSONResponse,Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel,Field
-from config import ROOT,HOME,VERSION,APP_NAME,PLATFORMS,supported_channels
+from config import ROOT,VERSION,APP_NAME,PLATFORMS,supported_channels
 from storage import init,db,get_meta,set_meta,records,ident,now,update_task
 from domain import make_prompt,analyze,brand_hint,public_pack
 from engine import Runner,create_batch
@@ -22,22 +22,45 @@ import keyword_planner
 import platform_planner
 import record_archive
 from record_export import build_xlsx
+from projects import project_scope,project_home,list_projects,read_active,new_project,set_active
 from datetime import date
 from urllib.parse import quote
 
 runner=Runner()
+active_project_id='default'
+project_requests=0
+project_switching=False
+
+def worker_enabled():return os.getenv('JUNHE_DISABLE_WORKER')!='1'
+
 @asynccontextmanager
 async def lifespan(app):
- init()
- if os.getenv('JUNHE_DISABLE_WORKER')!='1':await runner.start()
- yield
- await runner.stop()
+ global active_project_id
+ with project_scope('default'):
+  init()
+  profile=get_meta('profile')
+  list_projects(profile.get('brand_name') or profile['company_name'])
+ active_project_id=read_active()
+ with project_scope(active_project_id):
+  if active_project_id!='default':init(seed=False)
+  if worker_enabled():await runner.start()
+ try:yield
+ finally:
+  with project_scope(active_project_id):await runner.stop()
+  active_project_id='default'
 
 app=FastAPI(title=APP_NAME,version=VERSION,lifespan=lifespan)
 app.mount('/static',StaticFiles(directory=ROOT/'static'),name='static')
 
+def project_changed():
+ return {'code':'PROJECT_CHANGED','message':'当前项目已在另一个窗口切换。请重新加载工作台后继续。','active_project_id':active_project_id}
+
+def project_error(detail,status):
+ return JSONResponse({'detail':detail},status_code=status,headers={'Cache-Control':'no-store, max-age=0'})
+
 @app.middleware('http')
 async def local_mutations(request:Request,call_next):
+ global project_requests
  # Origin is only meaningful after Host is trusted: arbitrary DNS names must
  # not become local origins merely because they resolve to the loopback server.
  hosts=request.headers.getlist('host')
@@ -48,7 +71,26 @@ async def local_mutations(request:Request,call_next):
   origin=request.headers.get('origin')
   if request.headers.get('x-workspace-request')!='junhe-local' or (origin and origin!=str(request.base_url).rstrip('/')):
    return Response('请从本机工作台执行操作',status_code=403)
- response=await call_next(request)
+ path=request.url.path
+ scoped=path.startswith('/api/') and path not in ('/api/health','/api/projects') and not path.startswith('/api/projects/')
+ if scoped:
+  project_headers=request.headers.getlist('x-workspace-project')
+  project_queries=request.query_params.getlist('project') if path.startswith(('/api/export/','/api/screenshots/')) else []
+  if len(project_headers)>1 or len(project_queries)>1 or project_headers and project_queries and project_headers!=project_queries:
+   return project_error('项目请求标识不一致',400)
+  pid=(project_headers or project_queries or ['default'])[0]
+  if not re.fullmatch(r'default|[a-f0-9]{32}',pid):
+   return project_error('项目标识无效',400)
+  if pid!=active_project_id:
+   return project_error(project_changed(),409)
+  if project_switching:
+   return project_error('正在切换项目，请稍候。',409)
+  project_requests+=1
+  try:
+   with project_scope(pid):response=await call_next(request)
+   response.headers['X-Workspace-Project']=pid
+  finally:project_requests-=1
+ else:response=await call_next(request)
  if request.url.path=='/' or request.url.path.startswith(('/static/','/api/')):
   response.headers['Cache-Control']='no-store, max-age=0'
   response.headers['Pragma']='no-cache'
@@ -57,7 +99,84 @@ async def local_mutations(request:Request,call_next):
 @app.get('/')
 def home():return FileResponse(ROOT/'static/index.html')
 @app.get('/api/health')
-def health():return {'service':'ai-geo-workspace','status':'ok','version':VERSION,'scheduler_timezone':'Asia/Shanghai','queue':runner.snapshot(),'desktop':service_status()}
+async def health():
+ with project_scope(active_project_id):
+  return {'service':'ai-geo-workspace','status':'ok','version':VERSION,'scheduler_timezone':'Asia/Shanghai','queue':runner.snapshot(),'desktop':service_status(),'active_project_id':active_project_id}
+
+def project_view(row):
+ return {'id':row['id'],'name':row['title'],'created_at':row['created_at'],
+         'is_default':row['id']=='default','is_active':row['id']==active_project_id}
+
+@app.get('/api/projects')
+def project_list():
+ return {'active_project_id':active_project_id,'projects':[project_view(row) for row in list_projects()]}
+
+class ProjectCreate(BaseModel):
+ name:str=Field(min_length=1,max_length=100)
+ company_name:str=Field(min_length=2,max_length=100)
+ brand_name:str=Field(min_length=2,max_length=100)
+ domain:str=Field(default='',max_length=200)
+
+def clean_domain(value:str):
+ domain=value.strip().lower()
+ if domain and not re.fullmatch(r'(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}',domain):
+  raise HTTPException(422,'域名只填写主机名，例如 www.example.com，不含路径')
+ return domain
+
+@app.post('/api/projects',status_code=201)
+def create_project(body:ProjectCreate):
+ name,company,brand=(body.name.strip(),body.company_name.strip(),body.brand_name.strip())
+ if not name or len(company)<2 or len(brand)<2:raise HTTPException(422,'请填写项目名称、企业和品牌名称')
+ profile={'company_name':company,'brand_name':brand,'domain':clean_domain(body.domain),'aliases':[],
+          'brand_aliases':[],'brand_relation':'','business':'','audience':'','public_intro':'','audience_confirmed':False}
+ try:row=new_project(name,profile)
+ except ValueError as exc:raise HTTPException(422,str(exc)) from exc
+ return {'project':project_view(row),'active_project_id':active_project_id}
+
+@app.post('/api/projects/{pid}/activate')
+async def activate_project(pid:str,request:Request):
+ global active_project_id,project_switching,runner
+ if request.headers.getlist('x-workspace-project')!=[active_project_id]:
+  raise HTTPException(409,project_changed())
+ if project_switching:raise HTTPException(409,'正在切换项目，请稍候。')
+ row=next((item for item in list_projects() if item['id']==pid),None)
+ if not row:raise HTTPException(404,'未找到该项目')
+ if pid==active_project_id:return {'active_project_id':pid,'project':project_view(row)}
+ if not (project_home(pid)/'workspace.sqlite3').is_file():
+  raise HTTPException(409,'目标项目数据库不存在，请检查数据目录。')
+ if project_requests or runner.current or any(runner.busy(platform) for platform in PLATFORMS):
+  raise HTTPException(409,'当前项目还有正在执行的任务或操作，请等它完成后再切换。')
+
+ previous_id,previous_runner=active_project_id,runner
+ # Freeze dispatch before the first await. Requests cannot start or switch
+ # while the old project's browser contexts are being checked and closed.
+ project_switching=True
+ previous_runner.suspended=True
+ replacement=Runner()
+ replacement.next_by_platform.update(previous_runner.next_by_platform)
+ stopped=False
+ try:
+  with project_scope(previous_id):
+   try:await asyncio.wait_for(previous_runner.browser.check_project_switch(),timeout=8)
+   except NeedsSetup as exc:raise HTTPException(409,str(exc)) from exc
+   except TimeoutError as exc:raise HTTPException(409,'暂时无法确认平台窗口的草稿状态，请检查或关闭专用窗口后再切换。') from exc
+   stopped=True
+   await previous_runner.stop()
+  with project_scope(pid):
+   await asyncio.to_thread(init,seed=pid=='default')
+   if worker_enabled():await replacement.start()
+   set_active(pid)
+  runner=replacement
+  active_project_id=pid
+  return {'active_project_id':pid,'project':project_view(row)}
+ finally:
+  previous_runner.suspended=False
+  try:
+   if stopped and runner is previous_runner:
+    with project_scope(pid):await replacement.stop()
+    with project_scope(previous_id):
+     if worker_enabled():await previous_runner.start()
+  finally:project_switching=False
 
 def platform_view(pid):
  data={**PLATFORMS[pid],**get_meta('platform:'+pid)}
@@ -80,7 +199,7 @@ def bootstrap():
  for task in tasks[:150]:
   table.append({**{k:v for k,v in task.items() if k not in ('prompt','answer')},'answer_preview':task['answer'][:120],'metrics':json.loads(task['metrics'])})
  with db() as c:notice=c.execute("SELECT value FROM meta WHERE key='scheduler_notice'").fetchone()
- return {'version':VERSION,'client_counts':{group:sum(not states or t['status'] in states for t in tasks) for group,states in TASK_GROUPS.items()},
+ return {'version':VERSION,'active_project_id':active_project_id,'client_counts':{group:sum(not states or t['status'] in states for t in tasks) for group,states in TASK_GROUPS.items()},
          'profile':get_meta('profile'),'settings':get_meta('settings'),'desktop':service_status(),'platforms':[platform_view(pid) for pid in PLATFORMS],
          'documents':records('documents'),'keywords':records('keywords'),'tasks':table,'schedules':records('schedules'),
          'platform_keywords':platform_planner.list_keywords()['items'],'platform_schedules':platform_planner.list_schedules()['items'],
@@ -105,7 +224,7 @@ def task_list(q:str=Query('',max_length=160),status:str='',platform:str='',chann
 
 class Profile(BaseModel):
  company_name:str=Field(min_length=2,max_length=100)
- domain:str=Field(min_length=4,max_length=200)
+ domain:str=Field(default='',max_length=200)
  aliases:list[str]=Field(default_factory=list,max_length=20)
  business:str=Field(min_length=1,max_length=500)
  audience:str=Field(default='',max_length=1000)
@@ -116,8 +235,7 @@ class Profile(BaseModel):
  brand_relation:str=Field(default='',max_length=1000)
 @app.put('/api/profile')
 def save_profile(body:Profile):
- value=body.model_dump();domain=value['domain'].strip().lower()
- if not re.fullmatch(r'(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}',domain):raise HTTPException(422,'域名只填写主机名，例如www.junheprobio.com，不含路径')
+ value=body.model_dump();domain=clean_domain(value['domain'])
  if any(len(alias)>80 for alias in [*body.aliases,*body.brand_aliases]):raise HTTPException(422,'别名过长')
  existing=get_meta('profile')
  for key in ('brand_name','brand_aliases','brand_relation'):
@@ -459,7 +577,7 @@ async def capture_answer(tid:str):
  except NeedsSetup as exc:raise HTTPException(409,str(exc)) from exc
  except Exception as exc:raise HTTPException(409,'获取回答未完成，原问题没有重发。请检查豆包窗口和原对话是否仍可打开。') from exc
  metrics={**task['metrics'],'conversation_url':result['conversation_url'],'answer_matched_to_prompt':True,'later_turns_present':result['later_turns'],'source_links':result['links']}
- name=ident()+'.png';folder=HOME/'screenshots';folder.mkdir(exist_ok=True)
+ name=ident()+'.png';folder=project_home()/'screenshots';folder.mkdir(exist_ok=True)
  try:await runner.browser.pages['doubao'].screenshot(path=str(folder/name),full_page=False)
  except Exception:name=task['screenshot']
  update_task(tid,answer=result['answer'],screenshot=name,status='needs_review',reviewed=0,metrics=json.dumps(metrics,ensure_ascii=False),note=result['note'])
@@ -549,7 +667,7 @@ def delete_schedule(sid:str):
 @app.get('/api/screenshots/{name}')
 def screenshot(name:str):
  if not re.fullmatch(r'[a-f0-9]{32}\.png',name):raise HTTPException(404)
- path=HOME/'screenshots'/name
+ path=project_home()/'screenshots'/name
  if not path.is_file():raise HTTPException(404)
  return FileResponse(path,media_type='image/png')
 class RecordFilters(BaseModel):
@@ -600,7 +718,9 @@ def export_tasks(q:str=Query('',max_length=160),status:str='',platform:str='',ch
  return Response(('\ufeff'+stream.getvalue()).encode(),media_type='text/csv',headers={'Content-Disposition':'attachment; filename="junhe-tasks.csv"'})
 @app.get('/api/export/website-pack.zip')
 def export_pack():
+ profile=get_meta('profile')
+ if not profile['domain']:raise HTTPException(422,'请先在当前项目设置中填写官网域名')
  stream=io.BytesIO()
  with zipfile.ZipFile(stream,'w',zipfile.ZIP_DEFLATED) as archive:
-  for name,text in public_pack(get_meta('profile')).items():archive.writestr(name,text)
+  for name,text in public_pack(profile).items():archive.writestr(name,text)
  return Response(stream.getvalue(),media_type='application/zip',headers={'Content-Disposition':'attachment; filename="junhe-website-drafts.zip"'})

@@ -1,23 +1,31 @@
 import json,sqlite3,uuid
+from copy import deepcopy
 from contextlib import contextmanager
 from datetime import datetime,timezone
 from config import HOME,DEFAULT_PROFILE,DEFAULT_SETTINGS,PLATFORMS,default_platform
+from projects import project_home,current_project_id,blank_profile
 
 def now():return datetime.now(timezone.utc).isoformat(timespec='seconds')
 def ident():return uuid.uuid4().hex
 @contextmanager
 def db():
- connection=sqlite3.connect(HOME/'workspace.sqlite3',timeout=20)
+ connection=sqlite3.connect(project_home()/'workspace.sqlite3',timeout=20)
  connection.row_factory=sqlite3.Row
- connection.execute('PRAGMA journal_mode=WAL')
  try:
+  connection.execute('PRAGMA journal_mode=WAL')
   yield connection
   connection.commit()
  except Exception:
   connection.rollback();raise
  finally:connection.close()
 
-def init():
+def init(profile=None,seed=True):
+ # Registry creation is deliberately separate: legacy init() only touches its
+ # existing project database, and new project initialization cannot re-enter
+ # a registry transaction or copy the original business demonstration data.
+ legacy_seed=bool(seed and profile is None and current_project_id()=='default')
+ initial=deepcopy(DEFAULT_PROFILE) if legacy_seed else blank_profile()
+ if profile is not None:initial.update(deepcopy(profile))
  with db() as c:
   c.executescript('''
   CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY,value TEXT NOT NULL);
@@ -38,11 +46,11 @@ def init():
   for column in ('deleted_at','deletion_batch'):
    if column not in columns:c.execute('ALTER TABLE tasks ADD COLUMN '+column+' TEXT')
   first_boot=not c.execute("SELECT 1 FROM meta WHERE key='profile'").fetchone()
-  c.execute("INSERT OR IGNORE INTO meta VALUES('profile',?)",(json.dumps(DEFAULT_PROFILE,ensure_ascii=False),))
+  c.execute("INSERT OR IGNORE INTO meta VALUES('profile',?)",(json.dumps(initial,ensure_ascii=False),))
   profile=json.loads(c.execute("SELECT value FROM meta WHERE key='profile'").fetchone()['value'])
   changed=False
   for key in ('brand_name','brand_aliases','brand_relation'):
-   if key not in profile:profile[key]=DEFAULT_PROFILE[key];changed=True
+   if key not in profile:profile[key]=initial[key];changed=True
   if changed:c.execute("UPDATE meta SET value=? WHERE key='profile'",(json.dumps(profile,ensure_ascii=False),))
   c.execute("INSERT OR IGNORE INTO meta VALUES('settings',?)",(json.dumps(DEFAULT_SETTINGS),))
   c.execute("INSERT OR IGNORE INTO meta VALUES('keyword_plan',?)",(json.dumps({'enabled':False,'time':'09:00','count':10}),))
@@ -69,10 +77,10 @@ def init():
    original=json.loads(schedule['platforms']);active=[pid for pid in original if pid in PLATFORMS]
    if original!=active:c.execute('UPDATE schedules SET platforms=?,enabled=? WHERE id=?',(json.dumps(active),int(bool(active) and schedule['enabled']),schedule['id']))
   for pid in PLATFORMS:c.execute('INSERT OR IGNORE INTO meta VALUES(?,?)',('platform:'+pid,json.dumps(default_platform(pid)),))
-  if first_boot and not c.execute('SELECT 1 FROM keywords LIMIT 1').fetchone():
+  if legacy_seed and first_boot and not c.execute('SELECT 1 FROM keywords LIMIT 1').fetchone():
    for text,kind in [('广州菌和生物科技有限公司官网','品牌词'),('菌和生物 益生菌食品','品牌词'),('广州益生菌食品企业有哪些','行业词'),('益生菌食品经销合作怎么选择','招商词'),('益生菌食品代理需要了解哪些资质','招商词'),('益生菌食品门店合作需要了解什么','场景词')]:
     c.execute('INSERT INTO keywords VALUES(?,?,?,?)',(ident(),text,kind,now()))
-  if first_boot and not c.execute('SELECT 1 FROM documents LIMIT 1').fetchone():
+  if legacy_seed and first_boot and not c.execute('SELECT 1 FROM documents LIMIT 1').fetchone():
    for title,body,source,approved in [
     ('已确认的企业基本信息',DEFAULT_PROFILE['public_intro'],'用户确认：2026-11-02',1),
     ('品牌与产品目录（待核验）','招商课件出现“广微·益森日纪”品牌，产品目录出现畅青、畅乐、畅动、畅护、畅润、畅悦等益生菌名称。请核对产品标签及广州菌和生物科技有限公司与该品牌的授权关系后，再允许对外发送。','招商课件第16、23–29页',0),

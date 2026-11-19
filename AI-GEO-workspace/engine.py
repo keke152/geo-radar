@@ -114,7 +114,7 @@ class Runner:
  def __init__(self):
   self.browser=BrowserBridge();self.jobs=[];self.active={};self.active_jobs={};self.phases={}
   self.next_by_platform={};self.restoring={};self._legacy_current=None
-  self.heartbeat='';self.worker_error='';self.scheduler_error='';self.started=False
+  self.heartbeat='';self.worker_error='';self.scheduler_error='';self.started=False;self.suspended=False
  @property
  def current(self):return next(iter(self.active),self._legacy_current)
  @current.setter
@@ -267,6 +267,7 @@ class Runner:
           'next_dispatch_at':datetime.fromtimestamp(self.next_dispatch_at,timezone.utc).isoformat() if self.next_dispatch_at else '',
           'heartbeat':self.heartbeat,'error':'；'.join(message for message in (self.worker_error,scheduler_error) if message)}
  async def tick(self):
+  if self.suspended:return 1
   self.heartbeat=now();settings=get_meta('settings')
   if settings['paused']:return 1
   self.block_unready();capacity=settings.get('parallel_platforms',6)-len(self.active_jobs)
@@ -314,6 +315,9 @@ class Runner:
     set_meta('scheduler_notice',{'time':now(),'message':str(exc)})
  async def schedule_loop(self):
   while True:
+   if self.suspended:
+    await asyncio.sleep(1)
+    continue
    errors=[]
    try:
     from keyword_planner import daily_tick
