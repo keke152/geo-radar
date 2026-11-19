@@ -34,7 +34,7 @@
  document.addEventListener('input',event=>{if(event.target.id==='batch-keywords')updateBudget();});
  document.addEventListener('change',event=>{if(event.target.closest('#batch-platforms'))updateBudget();});
 
- function showInsights(report){
+ function showInsights(report, key){
   const t=report.totals,f=report.filters;
   $('#insights-brand').textContent=report.brand_name||'尚未设置品牌名称';$('#insights-company').textContent=report.company_name;
   $('#insight-samples').textContent=t.samples;$('#insight-questions').textContent=`覆盖 ${t.questions} 个不同问题`;
@@ -48,7 +48,7 @@
   const count=(n,total)=>total?`${n} / ${total}`:'—';
   const reasonLabels={branded:'指名问题',materials:'资料研读',continuation:'连续会话',unreviewed:'未完成/未核对',empty_answer:'空回答',source_directed:'来源核验'};
   $('#insights-platform-table').innerHTML='<div class="table-wrap"><table class="task-table insight-table"><thead><tr><th>平台 / 记录情况</th><th>计入样本</th><th>提及品牌</th><th>提及企业</th><th>官网链接</th><th>最近样本</th></tr></thead><tbody>'+report.platforms.map(p=>`<tr><td><b>${esc(p.name)}</b><small>共${p.total_tasks}条 · 已核对${p.recorded_answers}条</small>${p.samples===0?`<small>${esc(Object.entries(p.exclusions).map(([k,v])=>`${reasonLabels[k]||k} ${v}条`).join('；')||'当前筛选没有任务')}</small>`:''}</td><td>${p.samples}</td><td>${count(p.brand_mentions,p.samples)}</td><td>${count(p.company_mentions,p.samples)}</td><td>${count(p.official_links,p.samples)}</td><td>${esc(dateText(p.last_sample_at))}</td></tr>`).join('')+'</tbody></table></div>';
-  $('#insights-trend').innerHTML=window.renderVisibilityTrend(report);
+  window.InsightsDashboard.render(report,key);
   $('#insights-actions').innerHTML=report.actions.length?report.actions.map(a=>`<a class="insight-action" href="#${esc(a.target)}"><b>${esc(a.title)} <span>→</span></b><p>${esc(a.body)}</p></a>`).join(''):'<p class="empty">本区间已有检查记录，可以继续用相同问题观察变化。</p>';
   const comparison=report.comparison||report.questions;
   if(!comparison.length){$('#insights-questions').innerHTML='<div class="empty"><b>当前筛选没有任务</b><p>创建任务后，这里自动显示该问题在各平台的最新进度。</p><a class="btn light" href="#overview">创建检查任务 →</a></div>';}
@@ -60,10 +60,12 @@
  }
  async function refreshInsights(){
   if(!data||location.hash!=='#insights')return;
-  const ticket=++insightRequest,params=insightParams();$('#insights-export').href='/api/export/visibility.md?'+params;
+  const ticket=++insightRequest,params=insightParams(),key=params.toString();
+  $('#insights-export').href='/api/export/visibility.md?'+params;
+  window.InsightsDashboard.begin(key);
   $('#insights').setAttribute('aria-busy','true');
-  try{const report=await api('/api/insights?'+params);if(ticket===insightRequest)showInsights(report);}
-  catch(error){if(ticket===insightRequest)$('#insights-feedback').textContent='读取失败：'+error.message;}
+  try{const report=await api('/api/insights?'+params);if(ticket===insightRequest)showInsights(report,key);}
+  catch(error){if(ticket===insightRequest){$('#insights-feedback').textContent='读取失败：'+error.message;window.InsightsDashboard.fail(key);}}
   finally{if(ticket===insightRequest)$('#insights').setAttribute('aria-busy','false');}
  }
  for(const id of ['insights-days','insights-channel','insights-platform','insights-scope'])$('#'+id).addEventListener('change',refreshInsights);
